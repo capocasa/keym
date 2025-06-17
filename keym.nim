@@ -16,6 +16,8 @@ type
 let
   EVIOCSCLOCKID* {.importc, header: "<linux/input.h>".}: culong
 
+const latencyPeriods = 2
+
 proc toUsec(t: Timeval): int64 =
   ## older linux kernel time format with microseconds
   ## used by event subsystem
@@ -162,6 +164,16 @@ proc keyboardEventHandler() =
         # ignore repeat (which would be 2'i32)
         discard
 
+const
+  noteOn = 0x90'u8
+  noteOff = 0x80'u8
+
+proc `[]=`(s: ptr MidiData; i: int8; x: uint8) =
+  cast[ptr UncheckedArray[MidiData]](s)[i] = x
+
+proc `[]`(s: ptr MidiData; i: int8): uint8 =
+  cast[ptr UncheckedArray[MidiData]](s)[i]
+
 proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
   let
     jackTime = getTime().int64
@@ -180,11 +192,29 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
       currentEventJackTime = currentEvent.usec - timeOffset
       currentEventFrame = midiWriterClient.timeToFrames(currentEventJackTime.uint64)
       currentEventFrameFromLastFrameTime = currentEventFrame.int64 - frameTime.int64
-    echo (frameTime, currentEventFrame, currentEventFrameFromLastFrameTime)
-    #if currentEventFrameFromLastFrameTime >= numFrames:
-    #  break
-    #var event = jack_midi_event_reserve(addr event, midiOutBuffer, 3)
+      latency = latencyPeriods * numFrames
+    var
+      scheduledFrame = currentEventFrameFromLastFrameTime + latency.int
+    # echo (frameTime, currentEventFrame, currentEventFrameFromLastFrameTime)
+    if scheduledFrame < 0:
+      scheduledFrame = 0
+      stderr.write "Warning: event was late"
+    elif scheduledFrame >= numFrames.int:
+      break
+    stdout.write $scheduledFrame & " "
+    midiOutbuffer.midiClearBuffer()
+    var data = midiOutBuffer.midiEventReserve(NFrames scheduledFrame, 3)
+    assert not data.isNil, "could not reserve MIDI data"
+    if currentEvent.on:
+      data[0] = noteOn
+      data[1] = currentEvent.note.uint8
+      data[2] = 64'u8  # play nice with other controllers with sensitivity
+    else:
+      data[0] = noteOff
+      data[1] = currentEvent.note.uint8
+      data[2] = 0'u8  # quick release
     keyboardEventBuffer.readAdvance()
+    echo data[0], " ", data[1], " ", data[2]
 
 createThread signalThread, proc() {.thread.} =
   waitSignals(SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM):
@@ -199,7 +229,7 @@ assert midiWriterClient.setProcessCallback(midiWriter) == 0, "could not set proc
 
 assert midiWriterClient.activate() == 0, "Could not connect jack"
 
-createRealtimeThread(keyboardEventThread, keyboardEventHandler)
+createRealtimeThread(keyboardEventThread, keyboardEventHandler, priority=98)
 joinThread(keyboardEventThread)  # exit when input thread does, it's simpler not to have to kill it
 
 midiWriterClient.deactivate
