@@ -38,6 +38,19 @@ Run it in a terminal. There is no output unless a note is late.
 $ mash
 ```
 
+If you get a "cannot open" error, you need to find the /dev/input device for
+your main keyboard. Look it up in the device list.
+
+```
+less /proc/bus/input/devices
+```
+
+Your keyboard should have 'keyboard' in the name. Once you've found it, there will be an entry 'eventX' under 'Handlers', for example `event5`. Your path is `/dev/input/eventX`. Then you run
+
+```
+mash /dev/input/event5
+```
+
 You can also run it as a service, it's quite light.
 
 Connect it to a software instrument using a jack tool. On the command line:
@@ -63,6 +76,19 @@ To exit, press Ctrl-C or kill the process
 
 ```
 killall keym
+```
+
+For some finetuning, you can try lower latency. A realtime kernel is recommended. Normally this value should be the same as your jack buffer size.
+
+```
+mash -n1  # 2 is default
+mash -n0  # 2 is default
+```
+
+By default, the keyboard handler has priority 98, but you can change it
+
+```
+mash -p90  # maybe this works even better
 ```
 
 Key mapping

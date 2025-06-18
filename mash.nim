@@ -1,5 +1,5 @@
-import std/[monotimes]
-import rtthread, jill/ringbuffer, jill/os, mashpkg/codes, jacket
+import std/[parseopt, strutils]
+import mashpkg/codes, rtthread, jill/[ringbuffer, os], jacket
 from posix import Timeval, Timespec, clock_gettime, CLOCK_MONOTONIC
 
 type
@@ -34,10 +34,6 @@ type
 
 const
   EVIOCSCLOCKID = 0x400445A0'u64
-
-  latencyPeriods = 2
-  eventThreadPriority = 98
-  keyboardPath = "/dev/input/event3"
 
   transposeMin = -60'i8
   transposeMax = 60'i8
@@ -221,6 +217,12 @@ var
   midiPort: Port
   midiWriterClient: Client
   midiWriterStatus: cint
+  
+  # command line option specific state
+  latencyPeriods = 2
+  eventThreadPriority = 98
+  keyboardPath = "/dev/input/event3"
+  keyboardDevice: File
 
   # midiwriter State
   # global for performance and convenience, not thread safe
@@ -236,10 +238,6 @@ var
     
   # midi channel, 0 is channel 1
   channel: int8
-
-
-let
-  keyboardDevice = openDevice(keyboardPath)
 
 proc eventHandler() =
   while not terminating:
@@ -284,7 +282,7 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
       eventJackTime = event.usec - timeOffset
       eventFrame = midiWriterClient.timeToFrames(eventJackTime.uint64)
       eventFrameFromLastFrameTime = eventFrame.int64 - frameTime.int64
-      latency = latencyPeriods * numFrames
+      latency = latencyPeriods * numFrames.int
     var
       scheduledFrame = eventFrameFromLastFrameTime + latency.int
     # echo (frameTime, eventFrame, eventFrameFromLastFrameTime)
@@ -339,6 +337,40 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
       data[1] = 123'u8
       data[2] = 0'u8
 
+proc usage() =
+  echo "Usage: mash [-p98/--priority=98] [-n2/--periods=2]"
+  quit 1
+
+var optParser = initOptParser("", {'v'}, @["version"])
+for kind, key, val in optParser.getopt():
+  case kind
+  of cmdShortOption, cmdLongOption:
+    case key:
+    of "p", "priority":
+      eventThreadPriority = parseInt(val)
+      if not eventThreadPriority in 1 .. 99:
+        stderr.write "Event priority must be betwen 1 and 99\n"
+        quit 1
+    of "n", "periods":
+      latencyPeriods = parseInt(val)
+      if not latencyPeriods in 1 .. 10:
+        stderr.write "Latency periods must be priority must be between 1 and 3. Start with 2 and see if you can get away with 1 or 0.\n"
+        quit 1
+    of "v", "version":
+      echo "mash 0.1.0"
+      quit 0
+    else:
+      usage()
+  of cmdArgument:
+    keyboardPath = key
+    if not keyboardPath.startsWith "/dev/input":
+      stderr.write "Your keyboard input should start with /dev/input.\n"
+      quit 1
+  of cmdEnd:
+    break
+
+keyboardDevice = openDevice(keyboardPath)
+
 createThread signalThread, proc() {.thread.} =
   waitSignals(SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM):
     terminating = true
@@ -354,7 +386,7 @@ eventBuffer.lock()
 
 assert midiWriterClient.activate() == 0, "Could not connect jack"
 
-createRealtimeThread(eventThread, eventHandler, priority=eventThreadPriority)
+createRealtimeThread(eventThread, eventHandler, priority=cint eventThreadPriority)
 joinThread(eventThread)  # exit when input thread does, it's simpler not to have to kill it
 
 midiWriterClient.deactivate
