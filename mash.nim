@@ -1,5 +1,5 @@
 import std/[monotimes]
-import rtthread, jill/ringbuffer, jill/os, keym/codes, jacket
+import rtthread, jill/ringbuffer, jill/os, mashpkg/codes, jacket
 from posix import Timeval, Timespec, clock_gettime, CLOCK_MONOTONIC
 
 type
@@ -306,7 +306,7 @@ createThread signalThread, proc() {.thread.} =
 
 blockSignals(SIGABRT, SIGHUP, SIGINT, SIGQUIT, SIGTERM)
 
-midiWriterClient = clientOpen("keym", NoStartServer or UseExactName, midiWriterStatus.addr)
+midiWriterClient = clientOpen("mash", NoStartServer or UseExactName, midiWriterStatus.addr)
 assert not midiWriterClient.isNil, "Could not create jack client, jack may not be running"
 midiPort = midiWriterClient.portRegister("out", JackDefaultMidiType, PortIsOutput, 0)
 assert midiWriterClient.setProcessCallback(midiWriter) == 0, "could not set process callback"
