@@ -1,7 +1,7 @@
 Mash
 ====
 
-Mash is a musical computer keyboard program. Press keys on your computer keyboard, and get MIDI output on jack MIDI.
+Mash is a very precise musical virtual keyboard program for Jack MIDI. Press keys on your computer keyboard, and get MIDI output on jack MIDI.
 
 It works similar to the many other musical software keyboards out there, but it's much more precise- try it and feel the difference. There is very little jitter and no more delay than jack has. So while it's not velocity sensitive (organs aren't either), it plays like a serious instrument.
 
