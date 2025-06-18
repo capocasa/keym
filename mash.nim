@@ -34,7 +34,7 @@ const
   EVIOCSCLOCKID = 0x400445A0'u64
 
   latencyPeriods = 2
-  eventPriority = 98
+  eventThreadPriority = 98
   keyboardPath = "/dev/input/event3"
 
   transposeMin = -60'i8
@@ -314,7 +314,7 @@ eventBuffer.lock()
 
 assert midiWriterClient.activate() == 0, "Could not connect jack"
 
-createRealtimeThread(eventThread, eventHandler, priority=98)
+createRealtimeThread(eventThread, eventHandler, priority=eventThreadPriority)
 joinThread(eventThread)  # exit when input thread does, it's simpler not to have to kill it
 
 midiWriterClient.deactivate
