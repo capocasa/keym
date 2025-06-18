@@ -77,6 +77,8 @@ Key mapping
 | Left/Right Arrow | Transpose on semitone up or down |
 | Up/Down Arrow | Transpose one octave up or down |
 | Esc | Send "all notes off" or panic key |
+| F1 - F12 | Set active channel to 1 through 12 |
+| Home, End, Insert, Delete | Send active channel to 13, 14, 15, 16 |
 
 This for an American keyboard. The keys are unaffected by international keyboard layouts, so the key position will be the same no matter what layout you have, but a different glyph might be printed on them.
 
