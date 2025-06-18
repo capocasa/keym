@@ -270,7 +270,8 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
 
     midiOutBuffer = portGetBuffer(midiPort, numFrames)
  
-  midiOutbuffer.midiClearBuffer()
+  if eventBuffer.len > 0:
+    midiOutbuffer.midiClearBuffer()
 
   for event in eventBuffer.pop():
 
