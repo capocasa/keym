@@ -30,10 +30,9 @@ type
     of Housekeeping:
       action: HousekeepingAction
 
-let
-  EVIOCSCLOCKID* {.importc, header: "<linux/input.h>".}: culong
-
 const
+  EVIOCSCLOCKID = 0x400445A0'u64
+
   latencyPeriods = 2
   eventPriority = 98
   keyboardPath = "/dev/input/event3"
