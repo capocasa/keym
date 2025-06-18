@@ -16,7 +16,8 @@ type
     SemitoneUp,
     SemitoneDown,
     OctaveUp,
-    OctaveDown
+    OctaveDown,
+    Channel
   HousekeepingAction = enum
     AllNotesOff
   InputEvent {.packed.} = object
@@ -27,6 +28,7 @@ type
       on: bool
     of State:
       transition: StateTransition
+      data: int8
     of Housekeeping:
       action: HousekeepingAction
 
@@ -160,6 +162,40 @@ proc newInputEvent(rawEvent: RawKeyboardEvent): InputEvent =
   of KEY_DOWN:
     InputEvent(kind: State, transition: OctaveDown)
 
+  # channel
+  of KEY_F1:
+    InputEvent(kind: State, transition: Channel, data: 0)
+  of KEY_F2:
+    InputEvent(kind: State, transition: Channel, data: 1)
+  of KEY_F3:
+    InputEvent(kind: State, transition: Channel, data: 2)
+  of KEY_F4:
+    InputEvent(kind: State, transition: Channel, data: 3)
+  of KEY_F5:
+    InputEvent(kind: State, transition: Channel, data: 4)
+  of KEY_F6:
+    InputEvent(kind: State, transition: Channel, data: 5)
+  of KEY_F7:
+    InputEvent(kind: State, transition: Channel, data: 6)
+  of KEY_F8:
+    InputEvent(kind: State, transition: Channel, data: 7)
+  of KEY_F9:
+    InputEvent(kind: State, transition: Channel, data: 8)
+  of KEY_F10:
+    InputEvent(kind: State, transition: Channel, data: 9)
+  of KEY_F11:
+    InputEvent(kind: State, transition: Channel, data: 10)
+  of KEY_F12:
+    InputEvent(kind: State, transition: Channel, data: 11)
+  of KEY_HOME:
+    InputEvent(kind: State, transition: Channel, data: 12)
+  of KEY_END:
+    InputEvent(kind: State, transition: Channel, data: 13)
+  of KEY_INSERT:
+    InputEvent(kind: State, transition: Channel, data: 14)
+  of KEY_DELETE:
+    InputEvent(kind: State, transition: Channel, data: 15)
+
   # safety
   of KEY_ESC:
     InputEvent(kind: Housekeeping, action: AllNotesOff)
@@ -185,20 +221,22 @@ var
   midiPort: Port
   midiWriterClient: Client
   midiWriterStatus: cint
- 
 
   # midiwriter State
-  # global for convenience, not thread safe
-  # to create new ways to modify it, use input events
+  # global for performance and convenience, not thread safe
+  # only use in midiWriterThread or when that thread's not running
+  # to create new ways to modify it, make a new inputEvent 
   # so it is done in the correct order
+  
   # use only one variable for octave and transpose
   # because transposing twelve semitones down
   # is conceptually the same as one octave
   # (the opposite view exists but is irrelevant in practice)
-  transpose = 0'i8
+  transpose: int8
+    
+  # midi channel, 0 is channel 1
+  channel: int8
 
-  # MIDI channel
-  channel = 0'i8
 
 let
   keyboardDevice = openDevice(keyboardPath)
@@ -262,11 +300,11 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
       var data = midiOutBuffer.midiEventReserve(NFrames scheduledFrame, 3)
       assert not data.isNil, "could not reserve MIDI data"
       if event.on:
-        data[0] = noteOn
+        data[0] = noteOn or channel.uint8
         data[1] = (event.note + transpose).uint8
         data[2] = 64'u8  # half velocity, play nice with other MIDI streams
       else:
-        data[0] = noteOff
+        data[0] = noteOff or channel.uint8
         data[1] = (event.note + transpose).uint8
         data[2] = 0'u8  # signify quick release by MIDI conventions
 
@@ -291,6 +329,8 @@ proc midiWriter*(numFrames: NFrames, arg: pointer): cint {.cdecl.} =
         transpose -= 12
         if transpose < transposeMin:
           transpose += 12
+      of Channel:
+        channel = event.data
 
     of Housekeeping:
       var data = midiOutBuffer.midiEventReserve(NFrames scheduledFrame, 3)
