@@ -129,6 +129,7 @@ Changelog
 ---------
 
 ```
+0.1.3 Revert 0.1.1
 0.1.2 Fix dependency version
 0.1.1 Fix MIDI message clear spam
 0.1.0 Inital release- it works!

@@ -1,4 +1,4 @@
-version       = "0.1.0"
+version       = "0.1.3"
 author        = "Carlo Capocasa"
 description   = "High-accuracy Computer keyboard MIDI"
 license       = "MIT"
