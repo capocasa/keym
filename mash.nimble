@@ -7,5 +7,6 @@ bin           = @["mash"]
 # Dependencies
 requires "nim >= 2.0.0"
 requires "jacket"
-requires "jill"
+requires "jill >= 0.2.1"
 requires "rtthread"
+
